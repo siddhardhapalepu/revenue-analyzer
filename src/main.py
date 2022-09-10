@@ -10,6 +10,7 @@ class RevenueAnalyzer:
   def __init__(self):
     self.output = []
     self.client_name = "esshopzilla"
+    self.spark = SparkSession.builder.getOrCreate()
 
   def get_search_engine_name(self, url):
     """
@@ -60,46 +61,39 @@ class RevenueAnalyzer:
 
   def create_final_df(self, df):
     """
-    define
+    This module is used to create final data frame which will be then converted into output file
+    Input:
+    Output:
     """
+    #creating a temp table "revenue_data"
+    df.createOrReplaceTempView("revenue_data")
+    #Constructing a query to get revenue based on search keyword
+    query = '''SELECT search_engine_domain, search_keyword, sum(revenue) as Revenue  from revenue_data
+                group by search_engine_domain, search_keyword order by Revenue desc'''
+    revenue_result = self.spark.sql(query)
+    return revenue_result
   
   def output_result_to_file(self, revenue_result):
     """
     define 
     """
-    
-    #revenue_result.write.options(header=True, delimiter="\t").csv("C:\\Users\\swsee\\Documents\\Projects\\revenue-analyzer\\data\\output.tsv")
+    revenue_result.write.options(header=True, delimiter="\t").csv("/home/ubuntu/output/output.tsv")
     #revenue_result.write.csv("C:\\Users\\swsee\\Documents\\Projects\\revenue-analyzer\\data\\output.csv")
 
   def main(self):
     """
     Main function which calculates and outputs the revenue file
     """
-    spark = SparkSession.builder.getOrCreate()
-    input_df = spark.read.options(header='True', Inferschema=True, delimiter='\t') \
-        .csv(r"C:\Users\swsee\Documents\Projects\revenue-analyzer\data\data_1.tsv")
+    
+    input_df = self.spark.read.options(header='True', Inferschema=True, delimiter='\t') \
+        .csv(r"/home/ubuntu/project/revenue-analyzer/data/data_1.tsv")
     data_collect = input_df.collect()
     output_columns = ["search_engine_domain", "search_keyword", "revenue"]
-    # output_schema = StructType([
-    #     StructField("search_engine_domain", StringType(), False),
-    #     StructField("search_keyword", StringType(), False),
-    #     StructField("revenue", IntegerType(), True)
-    # ])
-    #output_df = spark.createDataFrame(data=[], schema=output_schema)
     for row in data_collect:
       self.create_base_df(row)
-
-    new_df = spark.createDataFrame(self.output, output_columns)
-   # new_df = output_df.union(newDf)
+    new_df = self.spark.createDataFrame(self.output, output_columns)
     new_df.show()
-    
-    #creating a temp table "revenue_data"
-    new_df.createOrReplaceTempView("revenue_data")
-    #Constructing a query to get revenue based on search keyword
-    query = '''SELECT search_engine_domain, search_keyword, sum(revenue) as Revenue  from revenue_data
-                group by search_engine_domain, search_keyword order by Revenue desc'''
-    revenue_result = spark.sql(query)
-    revenue_result.show()
+    revenue_result = self.create_final_df(new_df)
     self.output_result_to_file(revenue_result)
     
 
