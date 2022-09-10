@@ -58,6 +58,19 @@ class RevenueAnalyzer:
         output_row = (search_engine.lower(), space_delimited_search_keyword.lower(), revenue)
         self.output.append(output_row)
 
+  def create_final_df(self, df):
+    """
+    define
+    """
+  
+  def output_result_to_file(self, revenue_result):
+    """
+    define 
+    """
+    
+    #revenue_result.write.options(header=True, delimiter="\t").csv("C:\\Users\\swsee\\Documents\\Projects\\revenue-analyzer\\data\\output.tsv")
+    #revenue_result.write.csv("C:\\Users\\swsee\\Documents\\Projects\\revenue-analyzer\\data\\output.csv")
+
   def main(self):
     """
     Main function which calculates and outputs the revenue file
@@ -75,9 +88,20 @@ class RevenueAnalyzer:
     #output_df = spark.createDataFrame(data=[], schema=output_schema)
     for row in data_collect:
       self.create_base_df(row)
+
     new_df = spark.createDataFrame(self.output, output_columns)
    # new_df = output_df.union(newDf)
     new_df.show()
+    
+    #creating a temp table "revenue_data"
+    new_df.createOrReplaceTempView("revenue_data")
+    #Constructing a query to get revenue based on search keyword
+    query = '''SELECT search_engine_domain, search_keyword, sum(revenue) as Revenue  from revenue_data
+                group by search_engine_domain, search_keyword order by Revenue desc'''
+    revenue_result = spark.sql(query)
+    revenue_result.show()
+    self.output_result_to_file(revenue_result)
+    
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description='Enter file path')
