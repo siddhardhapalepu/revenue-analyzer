@@ -6,7 +6,9 @@ phases:
       python: 3.9
   pre_build:
     commands:
-      - pip3 install -r revenue-analyzer/requirements.txt
+      - pwd
+      - ll
+      - pip install -r requirements.txt
       - echo Nothing to do in the pre_build phase...
   build:
     commands:
