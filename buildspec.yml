@@ -14,4 +14,3 @@ phases:
 artifacts:
   files:
     - '**/*'
-  base-directory: revenue-analyzer
