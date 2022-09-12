@@ -1,7 +1,16 @@
 import argparse
+from email.policy import strict
+from logging import exception
 import re
+import os
+import json
+import shutil
+import datetime
+from statistics import mode
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
+from core import AwsOperations
+from core import AppConfig
 
 class RevenueAnalyzer:
   """
@@ -11,6 +20,8 @@ class RevenueAnalyzer:
     self.output = []
     self.client_name = "esshopzilla"
     self.spark = SparkSession.builder.getOrCreate()
+    self.configuration = AppConfig.AppConfig()
+    self.config_data = self.configuration.load_configuration()
 
   def get_search_engine_name(self, url):
     """
@@ -77,30 +88,47 @@ class RevenueAnalyzer:
     """
     define 
     """
-    revenue_result.write.options(header=True, delimiter="\t").csv("/home/ubuntu/output/output.tsv")
-    #revenue_result.write.csv("C:\\Users\\swsee\\Documents\\Projects\\revenue-analyzer\\data\\output.csv")
+    revenue_result.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
+    listFiles = os.listdir(self.config_data['dev']['temp_local_output_location_part_files'])
+    print(listFiles)
+    for subFiles in listFiles:
+      if subFiles[-4:] == ".csv":
+        current_date = datetime.date.today()
+        shutil.copyfile(self.config_data['dev']['temp_local_output_location_part_files']+'/'+subFiles, self.config_data['dev']['temp_local_output_location_final_output']+ '/' + str(current_date) + '_' + self.config_data['dev']['output_file_name'])
+        print(os.listdir(self.config_data['dev']['temp_local_output_location_final_output']))
+    
 
-  def main(self):
+  def main(self, input_file_path=None):
     """
     Main function which calculates and outputs the revenue file
     """
-    
-    input_df = self.spark.read.options(header='True', Inferschema=True, delimiter='\t') \
-        .csv(r"/home/ubuntu/project/revenue-analyzer/data/data_1.tsv")
-    data_collect = input_df.collect()
-    output_columns = ["search_engine_domain", "search_keyword", "revenue"]
-    for row in data_collect:
-      self.create_base_df(row)
-    new_df = self.spark.createDataFrame(self.output, output_columns)
-    new_df.show()
-    revenue_result = self.create_final_df(new_df)
-    self.output_result_to_file(revenue_result)
+    aws_ops_obj = AwsOperations.AwsOperations()
+    return_value = aws_ops_obj.validate_s3_file_path(input_file_path)
+    print(return_value)
+    if(aws_ops_obj.validate_s3_file_path(input_file_path)):
+      str_lst = input_file_path.split('/')
+      file_list = str_lst[-1:]
+      file_name = file_list[0]
+      aws_ops_obj.get_put_file_s3(source_filepath=input_file_path, dest_file_path=self.config_data['dev']['/home/ubuntu/input'])
+      input_df = self.spark.read.options(header='True', Inferschema=True, delimiter='\t') \
+          .csv(self.config_data['dev']['/home/ubuntu/input'] + '/' + file_name)
+      data_collect = input_df.collect()
+      output_columns = ["search_engine_domain", "search_keyword", "revenue"]
+      for row in data_collect:
+        self.create_base_df(row)
+      new_df = self.spark.createDataFrame(self.output, output_columns)
+      #new_df.show()
+      revenue_result = self.create_final_df(new_df)
+      self.output_result_to_file(revenue_result)
+    else:
+      print("Not valid file path")
     
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description='Enter file path')
-    arg_parser.add_argument(
-        'File path', help='Path of the data file to be processed')
+    arg_parser.add_argument('file_name', help='S3 filename')
+    #args = arg_parser.parse_args()
+    #file = args.file_name
     obj = RevenueAnalyzer()
-    obj.main()
+    obj.main('s3://revenue-analyzer-file-store/input/data_1.tsv')
     # implement sanitizer for path

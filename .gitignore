@@ -1,1 +1,3 @@
 .vscode
+src/core/__pycache__/AppConfig.cpython-310.pyc
+src/core/__pycache__/AwsOperations.cpython-310.pyc
