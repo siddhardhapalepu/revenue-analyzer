@@ -1,6 +1,14 @@
+#Below are the commands which needs to be executed on the app server for the app to function
 sudo apt-get update -y
 sudo apt install default-jre -y
 sudo apt install scala -y
 sudo apt install python3-pip -y
-pip3 install py4j
+sudo apt install aws-cli -y
 
+
+
+#need to add creation of inout and outout folders
+cd /home/ubuntu
+mkdir input
+mkdir output
+mkdir output_part_files
