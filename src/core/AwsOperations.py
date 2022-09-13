@@ -1,7 +1,7 @@
 from logging import exception
 import subprocess
 
-class AwsOperations:
+class AwsOperations():
     def __init__(self):
         pass
 
@@ -30,6 +30,7 @@ class AwsOperations:
         Validates if given S3 file path is valid
         '''
         try:
+            valid_file_types = ['.tsv']
             cmd = 'aws s3 ls ' + s3_file_path
             print(cmd)
             pipes = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
@@ -45,7 +46,8 @@ class AwsOperations:
                 return False
             else:
                 str_list = s3_file_path.split('/')
-                if str_list[-1:][-4:] == ".tsv":
+                file_list = str_list[-1:]
+                if file_list[0][-4:] in valid_file_types:
                     return True
                 else:
                     return False
@@ -56,4 +58,4 @@ class AwsOperations:
 if __name__ == "__main__":
 
     aws_ops = AwsOperations()
-    aws_ops.get_file_from_s3(source_filepath='s3://revenue-analyzer-file-store/input/data_1.tsv', dest_file_path='/home/ubuntu/input')
+    aws_ops.get_put_file_s3(source_filepath='s3://revenue-analyzer-file-store/input/data_1.tsv', dest_file_path='/home/ubuntu/input')

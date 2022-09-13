@@ -1,9 +1,7 @@
 import argparse
-from email.policy import strict
 from logging import exception
 import re
 import os
-import json
 import shutil
 import datetime
 from statistics import mode
@@ -22,6 +20,9 @@ class RevenueAnalyzer:
     self.spark = SparkSession.builder.getOrCreate()
     self.configuration = AppConfig.AppConfig()
     self.config_data = self.configuration.load_configuration()
+    self.aws_ops_obj = AwsOperations.AwsOperations()
+    self.input_file_path_local = None
+    self.output_file_path_local = None
 
   def get_search_engine_name(self, url):
     """
@@ -84,51 +85,72 @@ class RevenueAnalyzer:
     revenue_result = self.spark.sql(query)
     return revenue_result
   
-  def output_result_to_file(self, revenue_result):
+  def output_result_to_s3(self, revenue_result):
     """
     define 
     """
+    revenue_result = revenue_result.toDF(*("Search Engine Domain", "Search Keyword", "Revenue"))
     revenue_result.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
     listFiles = os.listdir(self.config_data['dev']['temp_local_output_location_part_files'])
     print(listFiles)
     for subFiles in listFiles:
       if subFiles[-4:] == ".csv":
         current_date = datetime.date.today()
-        shutil.copyfile(self.config_data['dev']['temp_local_output_location_part_files']+'/'+subFiles, self.config_data['dev']['temp_local_output_location_final_output']+ '/' + str(current_date) + '_' + self.config_data['dev']['output_file_name'])
+        self.output_file_path_local = self.config_data['dev']['temp_local_output_location_final_output']+ '/' + str(current_date) + '_' + self.config_data['dev']['output_file_name']
+        shutil.copyfile(self.config_data['dev']['temp_local_output_location_part_files']+'/'+subFiles, self.output_file_path_local)
         print(os.listdir(self.config_data['dev']['temp_local_output_location_final_output']))
-    
+        output_file_name = str(current_date) + '_' + self.config_data['dev']['output_file_name']
+        self.aws_ops_obj.get_put_file_s3(source_filepath=self.output_file_path_local, dest_file_path=self.config_data["dev"]["s3_output_location"] + output_file_name)
+        self.clean_local_files(self.output_file_path_local)
+      
+  
+  def clean_local_files(self, file_path: str):
+    """
+    This module removes files locally after execution
+    """
+    if os.path.exists(file_path):
+      try:
+        os.remove(file_path)
+        print(f"Deleted file {file_path}")
+      except OSError as e:
+        print("Error: %s - %s." % (e.filename,e.strerror))
+    else:
+      print(f"Cannot find file in {file_path}")
+
 
   def main(self, input_file_path=None):
     """
     Main function which calculates and outputs the revenue file
     """
-    aws_ops_obj = AwsOperations.AwsOperations()
-    return_value = aws_ops_obj.validate_s3_file_path(input_file_path)
-    print(return_value)
-    if(aws_ops_obj.validate_s3_file_path(input_file_path)):
+    
+    # Checking if the given s3 path is valid
+    if(self.aws_ops_obj.validate_s3_file_path(input_file_path)):
       str_lst = input_file_path.split('/')
       file_list = str_lst[-1:]
       file_name = file_list[0]
-      aws_ops_obj.get_put_file_s3(source_filepath=input_file_path, dest_file_path=self.config_data['dev']['/home/ubuntu/input'])
+      self.aws_ops_obj.get_put_file_s3(source_filepath=input_file_path, dest_file_path=self.config_data['dev']['source_file_local_path'])
+      # Reading the file
+      self.input_file_path_local = self.config_data['dev']['source_file_local_path'] + '/' + file_name
       input_df = self.spark.read.options(header='True', Inferschema=True, delimiter='\t') \
-          .csv(self.config_data['dev']['/home/ubuntu/input'] + '/' + file_name)
+          .csv(self.input_file_path_local)
       data_collect = input_df.collect()
       output_columns = ["search_engine_domain", "search_keyword", "revenue"]
       for row in data_collect:
         self.create_base_df(row)
       new_df = self.spark.createDataFrame(self.output, output_columns)
-      #new_df.show()
       revenue_result = self.create_final_df(new_df)
-      self.output_result_to_file(revenue_result)
+      self.output_result_to_s3(revenue_result)
+      # Deleting the input file in local
+      self.clean_local_files(self.input_file_path_local)
     else:
       print("Not valid file path")
+      
     
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description='Enter file path')
-    arg_parser.add_argument('file_name', help='S3 filename')
-    #args = arg_parser.parse_args()
-    #file = args.file_name
+    arg_parser.add_argument('file_path', help='S3 filename')
+    args = arg_parser.parse_args()
+    file_path = args.file_path
     obj = RevenueAnalyzer()
-    obj.main('s3://revenue-analyzer-file-store/input/data_1.tsv')
-    # implement sanitizer for path
+    obj.main(file_path)
