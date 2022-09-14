@@ -3,7 +3,7 @@ sudo apt-get update -y
 sudo apt install default-jre -y
 sudo apt install scala -y
 sudo apt install python3-pip -y
-sudo apt install aws-cli -y
+sudo apt install awscli -y
 
 
 
