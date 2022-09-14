@@ -8,8 +8,7 @@ from logging import exception
 import re
 import os
 import shutil
-import datetime
-from statistics import mode
+from datetime import datetime, timezone
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from core import AwsOperations
@@ -100,11 +99,11 @@ class RevenueAnalyzer:
     print(listFiles)
     for subFiles in listFiles:
       if subFiles[-4:] == ".csv":
-        current_date = datetime.date.today()
-        self.output_file_path_local = self.config_data['dev']['temp_local_output_location_final_output']+ '/' + str(current_date) + '_' + self.config_data['dev']['output_file_name']
+        utc_date = datetime.utcnow().strftime("%Y-%m-%d")
+        self.output_file_path_local = self.config_data['dev']['temp_local_output_location_final_output']+ '/' + str(utc_date) + '_' + self.config_data['dev']['output_file_name']
         shutil.copyfile(self.config_data['dev']['temp_local_output_location_part_files']+'/'+subFiles, self.output_file_path_local)
         print(os.listdir(self.config_data['dev']['temp_local_output_location_final_output']))
-        output_file_name = str(current_date) + '_' + self.config_data['dev']['output_file_name']
+        output_file_name = str(utc_date) + '_' + self.config_data['dev']['output_file_name']
         self.aws_ops_obj.get_put_file_s3(source_filepath=self.output_file_path_local, dest_file_path=self.config_data["dev"]["s3_output_location"] + output_file_name)
         self.clean_local_files(self.output_file_path_local)
       
