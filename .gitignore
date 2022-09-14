@@ -1,5 +1,4 @@
 .vscode
-src/core/__pycache__/AppConfig.cpython-310.pyc
-src/core/__pycache__/AwsOperations.cpython-310.pyc
-src/__pycache__/RevenueAnalyzer.cpython-310.pyc
+src/core/__pycache__
+src/__pycache__
 
