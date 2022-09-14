@@ -12,7 +12,8 @@ class AppConfig:
         if config_file_path is not None:
             self.config_file = config_file_path
         else:
-            self.config_file = os.environ.get("APP_CONFIG") + "/appconfig.json"
+            curr_working_dir = os.getcwd()
+            self.config_file = curr_working_dir + "/config/appconfig.json"
         try:
             with open(self.config_file, encoding='utf-8-sig', errors='ignore') as json_config_file:
                 self.config_data = json.load(json_config_file, strict=False)
