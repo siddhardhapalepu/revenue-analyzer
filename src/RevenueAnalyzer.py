@@ -1,3 +1,8 @@
+import os
+import sys
+dirname = os.getcwd()
+if dirname + '/src' not in sys.path:
+    sys.path.append(dirname + '/src')
 import argparse
 from logging import exception
 import re
@@ -38,7 +43,7 @@ class RevenueAnalyzer:
     """
     search_query = re.search("[&|?][p|q]=(\w|\+|%20)*&", url).group()
     search_keyword = search_query.split('=')[1]
-    space_delimited_search_keyword = re.sub('\+|%20|&', ' ',  search_keyword)
+    space_delimited_search_keyword = re.sub('\+|%20|&', ' ',  search_keyword).strip()
     return space_delimited_search_keyword
 
   def get_revenue(self, product_list):
@@ -83,13 +88,13 @@ class RevenueAnalyzer:
     query = '''SELECT search_engine_domain, search_keyword, sum(revenue) as Revenue  from revenue_data
                 group by search_engine_domain, search_keyword order by Revenue desc'''
     revenue_result = self.spark.sql(query)
+    revenue_result = revenue_result.toDF(*("Search Engine Domain", "Search Keyword", "Revenue"))
     return revenue_result
   
   def output_result_to_s3(self, revenue_result):
     """
     define 
     """
-    revenue_result = revenue_result.toDF(*("Search Engine Domain", "Search Keyword", "Revenue"))
     revenue_result.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
     listFiles = os.listdir(self.config_data['dev']['temp_local_output_location_part_files'])
     print(listFiles)
@@ -116,37 +121,48 @@ class RevenueAnalyzer:
         print("Error: %s - %s." % (e.filename,e.strerror))
     else:
       print(f"Cannot find file in {file_path}")
+  
+  def create_input_df(self, file_path: str):
+    """
+    
+    """
+    if(self.aws_ops_obj.validate_s3_file_path(file_path)):
+      str_lst = file_path.split('/')
+      file_list = str_lst[-1:]
+      file_name = file_list[0]
+      self.aws_ops_obj.get_put_file_s3(source_filepath=file_path, dest_file_path=self.config_data['dev']['source_file_local_path'])
+      # Reading the file
+      self.input_file_path_local = self.config_data['dev']['source_file_local_path'] + '/' + file_name
+      temp_input_df = self.spark.read.options(header='True', Inferschema=True, delimiter='\t') \
+          .csv(self.input_file_path_local)
+      data_collect = temp_input_df.collect()
+      output_columns = ["search_engine_domain", "search_keyword", "revenue"]
+      for row in data_collect:
+        self.create_base_df(row)
+      final_input_df = self.spark.createDataFrame(self.output, output_columns)
+      return final_input_df
+    else:
+      print("Not valid file path")
+      self.spark.stop()
 
 
   def main(self, input_file_path=None):
     """
     Main function which calculates and outputs the revenue file
     """
-    
-    # Checking if the given s3 path is valid
-    if(self.aws_ops_obj.validate_s3_file_path(input_file_path)):
-      str_lst = input_file_path.split('/')
-      file_list = str_lst[-1:]
-      file_name = file_list[0]
-      self.aws_ops_obj.get_put_file_s3(source_filepath=input_file_path, dest_file_path=self.config_data['dev']['source_file_local_path'])
-      # Reading the file
-      self.input_file_path_local = self.config_data['dev']['source_file_local_path'] + '/' + file_name
-      input_df = self.spark.read.options(header='True', Inferschema=True, delimiter='\t') \
-          .csv(self.input_file_path_local)
-      data_collect = input_df.collect()
-      output_columns = ["search_engine_domain", "search_keyword", "revenue"]
-      for row in data_collect:
-        self.create_base_df(row)
-      new_df = self.spark.createDataFrame(self.output, output_columns)
-      revenue_result = self.create_final_df(new_df)
-      self.output_result_to_s3(revenue_result)
-      # Deleting the input file in local
-      self.clean_local_files(self.input_file_path_local)
-    else:
-      print("Not valid file path")
-      
-    
+  # Checking if the given s3 path is valid
+    final_input_df = self.create_input_df(file_path=input_file_path)
+    revenue_result = self.create_final_df(final_input_df)
+    self.output_result_to_s3(revenue_result)
 
+    # Deleting the input file in local
+    self.clean_local_files(self.input_file_path_local)
+
+    # Stopping spark job
+    self.spark.stop()
+
+      
+  
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description='Enter file path')
     arg_parser.add_argument('file_path', help='S3 filename')
