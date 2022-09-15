@@ -1,0 +1,10 @@
+{
+    "dev" : {
+        "source_file_local_path": "./data",
+        "s3_input_file_path": "s3://revenue-analyzer-file-store/input/data_1.tsv",
+        "s3_output_location": "s3://revenue-analyzer-file-store/output/",
+        "temp_local_output_location_part_files": "/home/ubuntu/output_part_files",
+        "temp_local_output_location_final_output":"/home/ubuntu/output",
+        "output_file_name": "SearchKeywordPerformance.tab"
+    }
+}
