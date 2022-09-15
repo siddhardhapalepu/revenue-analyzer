@@ -5,4 +5,4 @@ files:
     destination: /home/ubuntu/revenue-analyzer
 hooks:
   AfterInstall:
-    - location: src/set-permissions.sh
+    - location: setup/set-permissions.sh
