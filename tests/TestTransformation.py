@@ -5,7 +5,7 @@ if dirname not in sys.path:
     sys.path.append(dirname)
 import unittest
 import sys
-from statistics import mode
+from decimal import Decimal
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from src.RevenueAnalyzer import RevenueAnalyzer
@@ -26,7 +26,6 @@ class PysparkETLTestCase(unittest.TestCase, RevenueAnalyzer):
        input_df = test_obj.create_input_df(file_path='s3://revenue-analyzer-file-store/input/data_1.tsv')
        output_df = self.create_final_df(input_df)
        print(output_df.show())
-       print("collect")
        print(output_df.collect())
        output_df.printSchema()
 
@@ -34,11 +33,11 @@ class PysparkETLTestCase(unittest.TestCase, RevenueAnalyzer):
        expected_schema = StructType([
         StructField('Search Engine Domain', StringType(), True),
         StructField('Search Keyword', StringType(), True),
-        StructField('Revenue', LongType(), True)
+        StructField('Revenue', DecimalType(), True)
        ])
 
-       expected_data = [("google", "ipod", 5120),
-                        ("bing", "zune", 2860)]
+       expected_data = [("google", "ipod", Decimal(5120)),
+                        ("bing", "zune", Decimal(2860))]
        expected_df = self.spark.createDataFrame(data=expected_data, schema=expected_schema)
        print(expected_df.show())
        print(expected_df.collect())
