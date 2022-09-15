@@ -107,7 +107,7 @@ class RevenueAnalyzer:
         self.clean_local_files(self.output_file_path_local)
       
   
-  def clean_local_files(self, file_path: str):
+  def clean_local_files(self, file_path):
     """
     This module removes files locally after execution
     """
@@ -120,7 +120,7 @@ class RevenueAnalyzer:
     else:
       print(f"Cannot find file in {file_path}")
   
-  def create_input_df(self, file_path: str):
+  def create_input_df(self, file_path):
     """
     This module take input a file path, derives necessary fields required for computation into DF
     """
