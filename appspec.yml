@@ -3,3 +3,6 @@ os: linux
 files:
   - source: /
     destination: /home/ubuntu/revenue-analyzer
+hooks:
+  AfterInstall:
+    - location: src/set-permissions.sh
