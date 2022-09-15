@@ -28,7 +28,7 @@ class RevenueAnalyzer:
     self.input_file_path_local = None
     self.output_file_path_local = None
 
-  def get_search_engine_name(self, url:str) -> str:
+  def get_search_engine_name(self, url):
     """
     This module is used to extract search engine name given the referrer URL
     """
@@ -36,7 +36,7 @@ class RevenueAnalyzer:
     search_engine = domain_name.split('.')[1]
     return search_engine
 
-  def get_search_key_word(self, url:str) -> str:
+  def get_search_key_word(self, url):
     """
     This module is used to derive the search key word given the URL
     """
