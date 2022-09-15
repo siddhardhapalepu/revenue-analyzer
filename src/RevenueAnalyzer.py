@@ -6,9 +6,8 @@ if dirname + '/src' not in sys.path:
 import argparse
 from logging import exception
 import re
-import os
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from core import AwsOperations
@@ -16,7 +15,8 @@ from core import AppConfig
 
 class RevenueAnalyzer:
   """
-  Class which contains logic to analyze revenue given a client's data file
+  Class which contains logic to analyze revenue of a client based on
+  search engines, search key words for a given client's data file
   """
   def __init__(self):
     self.output = []
@@ -28,17 +28,17 @@ class RevenueAnalyzer:
     self.input_file_path_local = None
     self.output_file_path_local = None
 
-  def get_search_engine_name(self, url):
+  def get_search_engine_name(self, url:str) -> str:
     """
-    This is used to derive search engine name given the URL
+    This module is used to extract search engine name given the referrer URL
     """
     domain_name = re.search("\/\/.*\/", url ).group()
     search_engine = domain_name.split('.')[1]
     return search_engine
 
-  def get_search_key_word(self, url):
+  def get_search_key_word(self, url:str) -> str:
     """
-    This is used to derive the search key word given the URL
+    This module is used to derive the search key word given the URL
     """
     search_query = re.search("[&|?][p|q]=(\w|\+|%20)*&", url).group()
     search_keyword = search_query.split('=')[1]
@@ -60,9 +60,9 @@ class RevenueAnalyzer:
 
   def create_base_df(self,row):
     """
-    This is used to create a base dataframe which contains data
+    This module is used to construct a base dataframe which contains data
     related to external search engines, their search keywords and
-    revenue of the product bought
+    revenue of the product
     """
     space_delimited_search_keyword = ''
     search_engine = ''
@@ -77,9 +77,7 @@ class RevenueAnalyzer:
 
   def create_final_df(self, df):
     """
-    This module is used to create final data frame which will be then converted into output file
-    Input:
-    Output:
+    This module is used to create final data frame as per business requirements
     """
     #creating a temp table "revenue_data"
     df.createOrReplaceTempView("revenue_data")
@@ -87,12 +85,13 @@ class RevenueAnalyzer:
     query = '''SELECT search_engine_domain, search_keyword, sum(revenue) as Revenue  from revenue_data
                 group by search_engine_domain, search_keyword order by Revenue desc'''
     revenue_result = self.spark.sql(query)
+    revenue_result = revenue_result.withColumn("Revenue", revenue_result["Revenue"].cast(DecimalType()))
     revenue_result = revenue_result.toDF(*("Search Engine Domain", "Search Keyword", "Revenue"))
     return revenue_result
   
   def output_result_to_s3(self, revenue_result):
     """
-    define 
+    This module takes input a df, creates a file and uploads it to AWS S3 
     """
     revenue_result.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
     listFiles = os.listdir(self.config_data['dev']['temp_local_output_location_part_files'])
@@ -123,7 +122,7 @@ class RevenueAnalyzer:
   
   def create_input_df(self, file_path: str):
     """
-    
+    This module take input a file path, derives necessary fields required for computation into DF
     """
     if(self.aws_ops_obj.validate_s3_file_path(file_path)):
       str_lst = file_path.split('/')
@@ -149,16 +148,22 @@ class RevenueAnalyzer:
     """
     Main function which calculates and outputs the revenue file
     """
-  # Checking if the given s3 path is valid
-    final_input_df = self.create_input_df(file_path=input_file_path)
-    revenue_result = self.create_final_df(final_input_df)
-    self.output_result_to_s3(revenue_result)
+    # Checking if the given s3 path is valid
+    try:
+      final_input_df = self.create_input_df(file_path=input_file_path)
+      revenue_result = self.create_final_df(final_input_df)
+      self.output_result_to_s3(revenue_result)
 
-    # Deleting the input file in local
-    self.clean_local_files(self.input_file_path_local)
+      # Deleting the input file in local
+      self.clean_local_files(self.input_file_path_local)
 
-    # Stopping spark job
-    self.spark.stop()
+    except exception as e:
+      print(e)
+
+    finally:
+      # Ending spark job
+      print("Ending spark session")
+      self.spark.stop()
 
       
   
