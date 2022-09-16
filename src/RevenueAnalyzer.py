@@ -165,7 +165,7 @@ class RevenueAnalyzer:
         df.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
         self.output_result_to_s3()
       else:
-        revenue_result = self.create_final_df(final_input_df)
+        self.create_final_df(final_input_df)
         self.output_result_to_s3()
 
       # Deleting the input file in local
