@@ -24,7 +24,7 @@ class PysparkETLTestCase(unittest.TestCase, RevenueAnalyzer):
        test_obj = RevenueAnalyzer()
        # Preparing output dataframe
        input_df = test_obj.create_input_df(file_path='s3://revenue-analyzer-file-store/input/data_1.tsv')
-       output_df = self.create_final_df(input_df)
+       output_df = test_obj.create_final_df(input_df)
        print(output_df.show())
        print(output_df.collect())
        output_df.printSchema()
