@@ -87,13 +87,13 @@ class RevenueAnalyzer:
     revenue_result = self.spark.sql(query)
     revenue_result = revenue_result.withColumn("Revenue", revenue_result["Revenue"].cast(DecimalType()))
     revenue_result = revenue_result.toDF(*("Search Engine Domain", "Search Keyword", "Revenue"))
+    revenue_result.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
     return revenue_result
   
-  def output_result_to_s3(self, revenue_result):
+  def output_result_to_s3(self):
     """
     This module takes input a df, creates a file and uploads it to AWS S3 
     """
-    revenue_result.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
     listFiles = os.listdir(self.config_data['dev']['temp_local_output_location_part_files'])
     print(listFiles)
     for subFiles in listFiles:
@@ -137,8 +137,12 @@ class RevenueAnalyzer:
       output_columns = ["search_engine_domain", "search_keyword", "revenue"]
       for row in data_collect:
         self.create_base_df(row)
-      final_input_df = self.spark.createDataFrame(self.output, output_columns)
-      return final_input_df
+      if len(self.output) > 0:
+        final_input_df = self.spark.createDataFrame(self.output, output_columns)
+        return final_input_df
+      else:
+        return None
+        
     else:
       print("Not valid file path")
       self.spark.stop()
@@ -151,8 +155,18 @@ class RevenueAnalyzer:
     # Checking if the given s3 path is valid
     try:
       final_input_df = self.create_input_df(file_path=input_file_path)
-      revenue_result = self.create_final_df(final_input_df)
-      self.output_result_to_s3(revenue_result)
+      if final_input_df == None:
+        output_schema = StructType([
+        StructField('Search Engine Domain', StringType(), True),
+        StructField('Search Keyword', StringType(), True),
+        StructField('Revenue', DecimalType(), True)
+       ])
+        df = self.spark.createDataFrame(data = [], schema = output_schema)
+        df.write.options(header=True, delimiter="\t").csv(self.config_data['dev']['temp_local_output_location_part_files'], mode='overwrite')
+        self.output_result_to_s3()
+      else:
+        revenue_result = self.create_final_df(final_input_df)
+        self.output_result_to_s3()
 
       # Deleting the input file in local
       self.clean_local_files(self.input_file_path_local)
